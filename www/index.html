@@ -33,13 +33,13 @@
             <ul></ul>
         </div>
         <div class="chat">
+            <div id="videoContainer"></div>
             <input type="button" value="Answer" id="answer" />
             <input type="button" value="Hangup" id="hangup" />
-            <div id="videoContainer"></div>
         </div>
         <script type="text/javascript" src="cordova.js"></script>
-        <script type="text/javascript" src="https://phonertc-sample-c9-dhirajbodicherla.c9.io/socket.io/socket.io.js"></script>
         <script type="text/javascript" src="js/jquery.min.js"></script>
+        <script type="text/javascript" src="https://phonertc-sample-c9-dhirajbodicherla.c9.io/socket.io/socket.io.js"></script>
         <script type="text/javascript">
             var socket = io.connect('https://phonertc-sample-c9-dhirajbodicherla.c9.io/'),
                 session, username, callingTo, duplicateMessages = [];
@@ -67,24 +67,41 @@
             });
 
             socket.on('messageReceived', onVideoMessageReceived);
-            socket.on('onMessage', function(message){
-                session.receiveMessage(message);
+            
+            socket.on('offline', function(name){
+                if(name === callingTo){
+                    session.close();
+                    $('.app').show();
+                    $('.chat').hide();
+                    $('#answer').show();
+                    $('#hangup').hide();
+                }
+                $('li.item[data-user="'+name+'"]').remove();
+            });
+
+            socket.on('disconnect', function(){
+                if(callingTo){
+                    session.close();
+                    $('.app').show();
+                    $('.chat').hide();
+                    $('#answer').show();
+                    $('#hangup').hide();
+                }
             });
 
             function call(isInitiator){
                 var config = {
                     isInitiator: isInitiator,
                     turn: {
-                        host: 'turn:turn2.xirsys.com:443?transport=udp',
-                        username: '69c77388-e451-4733-927d-aee6357d1427',
-                        password: '081794bc-25e7-4dd9-9dc4-2db9186a9e96'
+                        host: 'turn:numb.viagenie.ca',
+                        username: 'dhiraj@live.in',
+                        password: 'itsMyTurn'
                     },
                     streams: {
                         audio: true,
                         video: true
                     }
                 }
-               
                 session = new cordova.plugins.phonertc.Session(config);
                 cordova.plugins.phonertc.setVideoView({
                     container: document.getElementById('videoContainer'),
@@ -94,7 +111,7 @@
                     }
                 });
                 session.on('sendMessage', function (data) {
-                    socket.emit('sendMessage', { 
+                    socket.emit('sendMessage', callingTo, { 
                       type: 'phonertc_handshake',
                       data: JSON.stringify(data)
                     });
@@ -104,7 +121,12 @@
                     console.log('answered');
                 });
                 session.on('disconnect', function () {
-                    console.log('disconnect');
+                    session.close();
+                    socket.emit('sendMessage', callingTo, { type: 'ignore' });
+                    $('.app').show();
+                    $('.chat').hide();
+                    $('#answer').show();
+                    $('#hangup').hide();
                 });
                 session.call();
             }
@@ -117,7 +139,7 @@
                         callingTo = name;
                         break;
                     case 'answer':
-                        console.log('he answered');
+                        console.log(username + ' he answered');
                         call(true);
                         break;
                     case 'phonertc_handshake':
@@ -125,6 +147,13 @@
                             session.receiveMessage(JSON.parse(message.data));
                             duplicateMessages.push(message.data);
                         }
+                        break;
+                    case 'ignore':
+                        session.close();
+                        $('.app').show();
+                        $('.chat').hide();
+                        $('#answer').show();
+                        $('#hangup').hide();
                         break;
                 }
             }
@@ -139,14 +168,17 @@
                     socket.emit('sendMessage', callingTo, {type: 'call'});
                 });
 
-                $('#answer').click(function(){
+                $('#answer').on('click', function(){
+                    $('#answer').hide();
+                    $('#hangup').show();
                     call(false);
                     setTimeout(function(){
-                        socket.emit('sendMessage', callingTo, { type: 'answer' });
+                         socket.emit('sendMessage', callingTo, { type: 'answer' });
                     }, 1500);
                 });
 
-                $('#hangup').click(function(){
+                $('#hangup').on('click', function(){
+                    socket.emit('sendMessage', callingTo, { type: 'ignore' });
                     $('.app').show();
                     $('.chat').hide();
                     $('#answer').show();
