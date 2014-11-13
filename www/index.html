@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+     KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        <!-- WARNING: for iOS 7, remove the width=device-width and height=device-height attributes. See https://issues.apache.org/jira/browse/CB-4323 -->
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi" />
+        <link rel="stylesheet" type="text/css" href="css/index.css" />
+        <title>PhoneRTC Demo</title>
+    </head>
+    <body>
+        <div class="app">
+            <p>List of Users
+            <ul></ul>
+        </div>
+        <div class="chat">
+            <input type="button" value="Answer" id="answer" />
+            <input type="button" value="Hangup" id="hangup" />
+            <div id="videoContainer"></div>
+        </div>
+        <script type="text/javascript" src="cordova.js"></script>
+        <script type="text/javascript" src="https://phonertc-sample-c9-dhirajbodicherla.c9.io/socket.io/socket.io.js"></script>
+        <script type="text/javascript" src="js/jquery.min.js"></script>
+        <script type="text/javascript">
+            var socket = io.connect('https://phonertc-sample-c9-dhirajbodicherla.c9.io/'),
+                session, username, callingTo, duplicateMessages = [];
+            
+            username = Math.random().toString(36).substring(7);
+            socket.emit('login', username);
+            
+            socket.on('login_error', function(message){
+                console.log('login_error');
+            });
+
+            socket.on('login_successful', function(users){
+                console.log('login_successful');
+                $.each(users, function(index, user){
+                    if(user !== username){
+                        var u = $('<li class="item" data-user="'+user+'">' + user + '<span>Call</span></li>');
+                        $('ul').append(u);
+                    }
+                });
+            });
+
+            socket.on('online', function(user){
+                var u = $('<li class="item" data-user="'+user+'">' + user + '<span>Call</span></li>');
+                $('ul').append(u);
+            });
+
+            socket.on('messageReceived', onVideoMessageReceived);
+            socket.on('onMessage', function(message){
+                session.receiveMessage(message);
+            });
+
+            function call(isInitiator){
+                var config = {
+                    isInitiator: isInitiator,
+                    turn: {
+                        host: 'turn:turn2.xirsys.com:443?transport=udp',
+                        username: '69c77388-e451-4733-927d-aee6357d1427',
+                        password: '081794bc-25e7-4dd9-9dc4-2db9186a9e96'
+                    },
+                    streams: {
+                        audio: true,
+                        video: true
+                    }
+                }
+               
+                session = new cordova.plugins.phonertc.Session(config);
+                cordova.plugins.phonertc.setVideoView({
+                    container: document.getElementById('videoContainer'),
+                    local: {
+                        position: [0, 0],
+                        size: [100, 100]
+                    }
+                });
+                session.on('sendMessage', function (data) {
+                    socket.emit('sendMessage', { 
+                      type: 'phonertc_handshake',
+                      data: JSON.stringify(data)
+                    });
+                });
+                
+                session.on('answer', function () {
+                    console.log('answered');
+                });
+                session.on('disconnect', function () {
+                    console.log('disconnect');
+                });
+                session.call();
+            }
+
+            function onVideoMessageReceived(name, message){
+                switch (message.type){
+                    case 'call':
+                        $('.app').hide();
+                        $('.chat').show();
+                        callingTo = name;
+                        break;
+                    case 'answer':
+                        console.log('he answered');
+                        call(true);
+                        break;
+                    case 'phonertc_handshake':
+                        if (duplicateMessages.indexOf(message.data) === -1) {
+                            session.receiveMessage(JSON.parse(message.data));
+                            duplicateMessages.push(message.data);
+                        }
+                        break;
+                }
+            }
+            
+            $(document).ready(function(){
+                $('.app').on('click', 'li', function(){
+                    $('.app').hide();
+                    $('.chat').show();
+                    $('#answer').hide();
+                    $('#hangup').show();
+                    callingTo = $(this).data('user');
+                    socket.emit('sendMessage', callingTo, {type: 'call'});
+                });
+
+                $('#answer').click(function(){
+                    call(false);
+                    setTimeout(function(){
+                        socket.emit('sendMessage', callingTo, { type: 'answer' });
+                    }, 1500);
+                });
+
+                $('#hangup').click(function(){
+                    $('.app').show();
+                    $('.chat').hide();
+                    $('#answer').show();
+                    $('#hangup').hide();
+                });
+            });
+        </script>
+    </body>
+</html>
