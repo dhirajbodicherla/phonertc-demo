@@ -90,12 +90,32 @@
             });
 
             function call(isInitiator){
+                $.ajax({
+                    type: "POST",
+                    dataType: "json",
+                    url: "https://api.xirsys.com/getIceServers",
+                    data: {
+                        ident: "dhiraj",
+                        secret: "bb56af66-b4d4-4e7e-8994-98199a4e4c36",
+                        domain: "github.com",
+                        application: "sample-chat-app",
+                        room: "sample-chat-room",
+                        secure: 1
+                    },
+                    success: function (data, status) {
+                        startCall(data.d.iceServers[2], isInitiator);
+                    },
+                    async: false
+                });
+            }
+
+            function startCall(data, isInitiator){
                 var config = {
                     isInitiator: isInitiator,
                     turn: {
-                        host: 'turn:numb.viagenie.ca',
-                        username: 'dhiraj@live.in',
-                        password: 'itsMyTurn'
+                        host: data.url,
+                        username: data.username,
+                        password: data.credential
                     },
                     streams: {
                         audio: true,
@@ -149,6 +169,7 @@
                         }
                         break;
                     case 'ignore':
+                        /* need to add session close for other cases as well */
                         session.close();
                         $('.app').show();
                         $('.chat').hide();
