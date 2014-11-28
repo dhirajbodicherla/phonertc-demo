@@ -39,9 +39,9 @@
         </div>
         <script type="text/javascript" src="cordova.js"></script>
         <script type="text/javascript" src="js/jquery.min.js"></script>
-        <script type="text/javascript" src="https://phonertc-sample-c9-dhirajbodicherla.c9.io/socket.io/socket.io.js"></script>
+        <script type="text/javascript" src="https://phonertc-demo-server.herokuapp.com/socket.io/socket.io.js"></script>
         <script type="text/javascript">
-            var socket = io.connect('https://phonertc-sample-c9-dhirajbodicherla.c9.io/'),
+            var socket = io.connect('https://phonertc-demo-server.herokuapp.com/'),
                 session, username, callingTo, duplicateMessages = [];
             
             username = Math.random().toString(36).substring(7);
